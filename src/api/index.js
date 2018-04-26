@@ -1,5 +1,5 @@
 // imports
-import parse from 'csv-parse';
+import { parse } from 'papaparse';
 import url from 'url';
 import qs from 'qs';
 // relative imports
@@ -24,43 +24,30 @@ const fetchStations = network => {
     const fetchOptions = {
       mode: 'cors',
     };
+    // stations is object with station id's as keys and
+    // station metadata inside each value
+    // used to cross-reference and add metadata to weather array
+    const stations = {};
+    const stationids = [];
     window
       .fetch(url, fetchOptions)
       .then(res => res.text())
       .then(body => {
         const parseOptions = {
-          // automatically parse csv using commas as delimiter
-          auto_parse: true,
-          // parse column names from first row
-          columns: true,
+          header: true,
+          step: ({data}) => {
+            const c = data[0];
+            const stationID = c.station;
+            // add station id to list of station id's
+            stationids.push(stationID);
+            // remove station id from meta object
+            const {...value} = c;
+            // add meta object to stations object
+            stations[stationID] = value;
+          },
+          complete: () => resolve({stations, stationids}),
         };
-        const stream = parse(body, parseOptions);
-        // stations is object with station id's as keys and
-        // station metadata inside each value
-        // used to cross-reference and add metadata to weather array
-        const stations = {};
-        const stationids = [];
-        stream.on('data', c => {
-          const stationID = c.stid;
-          // add station id to list of station id's
-          stationids.push(stationID);
-          // remove station id from meta object
-          const {stid, ...value} = c;
-          // add meta object to stations object
-          stations[stationID] = value;
-        });
-        stream.on('end', () => {
-          console.log('writing to cache');
-          window.localStorage.setItem(
-            'stationMeta',
-            JSON.stringify({
-              cachedAt: Date.now(),
-              stations,
-              stationids,
-            }),
-          );
-          resolve({stations, stationids});
-        });
+        parse(body);
       });
   });
 };
@@ -101,25 +88,23 @@ const parseIowaCSV = (csv, network) => {
   return new Promise(async (resolve, reject) => {
     // get stations (for metadata)
     const {stations, stationids} = await fetchStations(network);
-    // parse weather data from csv
-    const parserOptions = {
-      auto_parse: true,
-      columns: true,
-    };
     const stationData = [];
-    const stream = parse(csv, parserOptions);
-    stream.on('data', c => {
-      const stationID = c.station;
-      const meta = stations[stationID];
-      // remove keys that are "None"
-      const filteredChunk = {};
-      Object.keys(c).map(k => {
-        if (c[k] !== 'None') filteredChunk[k] = c[k];
-      });
-      const output = { ...filteredChunk, ...meta};
-      stationData.push(output);
+    parse(csv, {
+      header: true,
+      step: ({data}) => {
+        const c = data[0];
+        const stationID = c.station;
+        const meta = stations[stationID];
+        // remove keys that are "None"
+        const filteredChunk = {};
+        Object.keys(c).map(k => {
+          if (c[k] !== 'None') filteredChunk[k] = c[k];
+        });
+        const output = { ...filteredChunk, ...meta};
+        if (output.station !== "") stationData.push(output);
+      },
+      complete: () => resolve(stationData),
     });
-    stream.on('end', () => resolve(stationData));
   });
 };
 // module function
