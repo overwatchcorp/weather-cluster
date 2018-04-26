@@ -12,16 +12,32 @@ class App extends Component {
       error: null,
       data: null,
     };
+    this.handleChange = this.handleChange.bind(this);
   }
   componentWillMount() {
     // fetch weather, then send to state
     fetchWeather()
       .then(data => {
+        const temps = data.map(s => s.climo_high_f);
+        const precip = data.map(s => s.climo_precip_in);
+        const tempMean = math.mean(temps);
+        const tempMax = math.max(temps);
+        const tempMin = math.min(temps);
+        const precipMean = math.mean(precip);
+        const precipMax = math.max(precip);
+        const precipMin = math.min(precip);
+        console.log(precipMin,precipMax)
         this.setState({
           loading: false,
           loaded: true,
           error: null,
           data,
+          tempCutoff: tempMean,
+          precipCutoff: precipMean,
+          tempMin,
+          tempMax,
+          precipMin,
+          precipMax,
         });
       })
       // catch errors if there is an api error
@@ -34,19 +50,20 @@ class App extends Component {
         });
       });
   }
+  handleChange(e) {
+    const key = e.target.dataset.key;
+    const newState = {}
+    newState[key] = e.target.value
+    this.setState(newState);
+  }
   render() {
     let mapData, tempMean, precipMean;
     if (this.state.data) {
-      console.log(this.state.data);
-      const temps = this.state.data.map(s => s.climo_high_f);
-      const precip = this.state.data.map(s => s.climo_precip_in);
-      tempMean = math.mean(temps);
-      precipMean = math.mean(precip);
       mapData = this.state.data.map(s => ({
         stid: s.station,
         type: 'station',
-        size: (s.climo_precip_in > precipMean) ? 1 : 0,
-        color: (s.climo_high_f > tempMean) ? 1 : 0,
+        size: (s.climo_precip_in > this.state.precipCutoff) ? 1 : 0,
+        color: (s.climo_high_f > this.state.tempCutoff) ? 1 : 0,
         y: s.lat,
         x: s.lon,
       }));
@@ -60,8 +77,7 @@ class App extends Component {
           paddingTop: 10,
         }}>
         {this.state.error ? (
-          <div>
-            Oh no my dude there's an e r r o r
+          <div className="alert alert-danger">
             {JSON.stringify(this.state.error)}
           </div>
         ) : null}
@@ -79,8 +95,31 @@ class App extends Component {
               </ul>
             </div>
             <Graph mapData={mapData} />
-            <p>temperature mean: {Math.floor(tempMean * 10) / 10} degrees fairenheight</p>
-            <p>precipitation mean: {Math.floor(precipMean * 1000) / 1000} inches</p>
+            <div>
+              adjust temperature dichotomy
+              <input
+                type="range"
+                min={this.state.tempMin}
+                max={this.state.tempMax}
+                data-key="tempCutoff"
+                value={this.state.tempCutoff}
+                onChange={this.handleChange}
+              />
+              {this.state.tempCutoff} degrees fair'n'height
+            </div>
+            <div>
+              adjust precip dichotomy
+              <input
+                type="range"
+                min={this.state.precipMin}
+                max={this.state.precipMax}
+                data-key="precipCutoff"
+                step="0.001"
+                value={this.state.precipCutoff}
+                onChange={this.handleChange}
+              />
+              {this.state.precipCutoff} inches
+            </div>
           </div>
         ) : (
           <h2>Loading...</h2>
