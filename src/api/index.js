@@ -37,17 +37,17 @@ const fetchStations = network => {
           header: true,
           step: ({data}) => {
             const c = data[0];
-            const stationID = c.station;
+            const stationID = c.stid;
             // add station id to list of station id's
             stationids.push(stationID);
             // remove station id from meta object
             const {...value} = c;
             // add meta object to stations object
-            stations[stationID] = value;
+            stations[stationID] = c;
           },
           complete: () => resolve({stations, stationids}),
         };
-        parse(body);
+        parse(body, parseOptions);
       });
   });
 };

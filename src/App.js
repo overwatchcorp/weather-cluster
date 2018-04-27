@@ -16,8 +16,11 @@ class App extends Component {
   }
   componentWillMount() {
     // fetch weather, then send to state
+    console.log('component mounting!');
     fetchWeather()
       .then(data => {
+        console.log('weather loaded!');
+        console.log(data);
         const temps = data.map(s => s.climo_high_f);
         const precip = data.map(s => s.climo_precip_in);
         const tempMean = math.mean(temps);
@@ -31,14 +34,24 @@ class App extends Component {
           loading: false,
           loaded: true,
           error: null,
-          data,
-          tempCutoff: tempMean,
-          precipCutoff: precipMean,
+          tempCutoff: Math.floor(tempMean * 1000) / 1000,
+          precipCutoff: Math.floor(precipMean * 1000) / 1000,
           tempMin,
           tempMax,
           precipMin,
           precipMax,
         });
+        // fun little fill animation
+        let displayCount = 1;
+        // sort from cold to hot
+        const sortedData = data.sort((a, b) => a.climo_high_f > b.climo_high_f)
+        const displayer = setInterval(() => {
+          if (displayCount - 1 === sortedData.length) return clearInterval(displayer);
+          this.setState({
+            data: sortedData.slice(0,displayCount),
+          });
+          displayCount += 1;
+        }, 1);
       })
       // catch errors if there is an api error
       .catch(err => {
@@ -48,6 +61,7 @@ class App extends Component {
           error: err,
           data: null,
         });
+        console.error(err)
       });
   }
   handleChange(e) {
@@ -63,7 +77,7 @@ class App extends Component {
         stid: s.station,
         type: 'station',
         size: (s.climo_precip_in > this.state.precipCutoff) ? 1 : 0,
-        color: (s.climo_high_f > this.state.tempCutoff) ? 1 : 0,
+        color: (s.climo_high_f > this.state.tempCutoff) ? 0 : 1,
         y: s.lat,
         x: s.lon,
       }));
