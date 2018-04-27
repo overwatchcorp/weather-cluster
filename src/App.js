@@ -79,7 +79,7 @@ class App extends Component {
         size: (s.climo_precip_in > this.state.precipCutoff) ? 1 : 0,
         color: (s.climo_high_f > this.state.tempCutoff) ? 0 : 1,
         y: s.lat,
-        x: s.lon,
+        x: 124 - -1 * s.lon + 124,
       }));
     }
     return (
